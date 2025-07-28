@@ -1,10 +1,14 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
+import userRouter from './routes/userRouter.js';
 
 const app = express();
 
 app.use(bodyParser.json())
+
+app.use('/users',userRouter);
+
 
 mongoose.connect("mongodb+srv://admin:admin123@cluster0.djhsp1e.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0").then(
     () => {
