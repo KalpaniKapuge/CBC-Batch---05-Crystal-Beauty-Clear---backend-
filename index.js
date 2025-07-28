@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import userRouter from './routes/userRouter.js';
 import  jwt from 'jsonwebtoken';
+import productRouter from './routes/productRouter.js';
 
 const app = express();
 
@@ -35,6 +36,8 @@ app.use((req, res, next) => {
 
 
 app.use('/users',userRouter);
+
+app.use('/products', productRouter);
 
 
 mongoose.connect("mongodb+srv://admin:admin123@cluster0.djhsp1e.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0").then(
