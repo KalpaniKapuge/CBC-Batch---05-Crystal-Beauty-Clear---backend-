@@ -2,10 +2,37 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import userRouter from './routes/userRouter.js';
+import  jwt from 'jsonwebtoken';
 
 const app = express();
 
 app.use(bodyParser.json())
+
+
+app.use((req, res, next) => {
+    const tokenString = req.header("Authorization");
+
+    if (tokenString != null) {
+        const token = tokenString.replace("Bearer ", "");
+
+        jwt.verify(token, "crystal-bloom@28870", (err, decoded) => {
+            if (err || !decoded) {
+                console.log("Invalid token");
+                return res.status(403).json({
+                    message: "Invalid token"
+                });
+            }
+            
+            console.log(decoded);
+            req.user = decoded;
+            next();
+        });
+    } else {
+        
+        next();
+    }
+});
+
 
 app.use('/users',userRouter);
 
