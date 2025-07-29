@@ -1,6 +1,8 @@
 import bcrypt from 'bcrypt';
 import User from '../models/user.js';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+dotenv.config();
 
 export function createUser(req, res) {
     if (req.user != null) {
@@ -64,7 +66,7 @@ export function loginUser(req, res) {
                         role: user.role,
                         img: user.img
                     },
-                        "crystal-bloom@28870"
+                        "process.env.JWT_KEY",
                     );
                     return res.status(200).json({
                         message: "Login successful",

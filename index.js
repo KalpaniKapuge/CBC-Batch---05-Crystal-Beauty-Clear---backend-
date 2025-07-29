@@ -5,8 +5,11 @@ import userRouter from './routes/userRouter.js';
 import  jwt from 'jsonwebtoken';
 import productRouter from './routes/productRouter.js';
 import orderRouter from './routes/orderRouter.js';
+import cors from 'cors';
 
 const app = express();
+
+app.use(cors())
 
 app.use(bodyParser.json())
 
@@ -17,7 +20,7 @@ app.use((req, res, next) => {
     if (tokenString != null) {
         const token = tokenString.replace("Bearer ", "");
 
-        jwt.verify(token, "crystal-bloom@28870", (err, decoded) => {
+        jwt.verify(token, "process.env.JWT_KEY", (err, decoded) => {
             if (err || !decoded) {
                 console.log("Invalid token");
                 return res.status(403).json({
@@ -36,14 +39,14 @@ app.use((req, res, next) => {
 });
 
 
-app.use('/users',userRouter);
+app.use('/api/users',userRouter);
 
-app.use('/products', productRouter);
+app.use('/api/products', productRouter);
 
-app.use('/orders',orderRouter);
+app.use('/api/orders',orderRouter);
 
 
-mongoose.connect("mongodb+srv://admin:admin123@cluster0.djhsp1e.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0").then(
+mongoose.connect("process.env.MONGODB_URL").then(
     () => {
         console.log("Connected to MongoDB");
     }
