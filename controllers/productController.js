@@ -79,7 +79,10 @@ export async function updateProduct(req, res) {
 
     try{
         await Product.updateOne
-        ({productId: productId}, updatingData);
+        ({
+            productId: productId
+        }, 
+        updatingData);
         res.status(200).json({
             message: "Product updated successfully"
         });
@@ -90,4 +93,38 @@ export async function updateProduct(req, res) {
         });
     }
 
+}
+
+//get product by id
+export async function getProductById(req, res) {
+    const productId = req.params.productId;
+
+    try {
+        const product = await Product.findOne({ 
+            productId: productId 
+        });
+
+        if (!product) {
+            return res.status(404).json({ 
+                message: "Product not found" 
+            });
+        }
+
+        if (product.isAvailable) {
+            return res.status(200).json(product);
+        } else {
+            if (!isAdmin(req)) {
+                return res.status(404).json({ 
+                    message: "Product not found" 
+                });
+            } else {
+                return res.status(200).json(product);
+            }
+        }
+    } catch (err) {
+        return res.status(500).json
+        ({ 
+            message: "Server error", error: err
+     });
+    }
 }
