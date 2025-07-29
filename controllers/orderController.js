@@ -1,37 +1,92 @@
-import { useState } from "react";
+import Order from '../models/order.js';
+import Product from '../models/product.js'; 
 
-export default function TestingPage() {
-  const [count, setCount] = useState(0);
-  const [status, setStatus] = useState("passed");
+export async function createOrder(req, res) {
+    if (!req.user) {
+        return res.status(403).json({
+            message: "Please login and try again"
+        });
+    }
 
-  return (
-    <div className="w-full h-screen flex items-center justify-center bg-blue-100">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-80">
-        <h2 className="text-2xl font-bold mb-6 text-blue-600 text-center">Testing Page</h2>
+    const orderInfo = req.body;
 
-        <p className="mb-4">Count: {count}</p>
-        <button
-          onClick={() => setCount(count + 1)}
-          className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-colors mb-4"
-        >
-          Increment Count
-        </button>
+    // Auto-fill name if not provided
+    if (!orderInfo.name) {
+        orderInfo.name = req.user.firstName + " " + req.user.lastName;
+    }
 
-        <button
-          onClick={() => setCount(count - 1)}
-          className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-colors mb-4"
-        >
-          Decrement Count
-        </button>
+    let orderId = "CRY00001";
 
-        <p className="mb-4">Status: {status}</p>
-        <button
-          onClick={() => setStatus(status === "passed" ? "failed" : "passed")}
-          className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors"
-        >
-          Toggle Status
-        </button>
-      </div>
-    </div>
-  );
+    try {
+        const lastOrder = await Order.find().sort({ date: -1 }).limit(1);
+
+        if (lastOrder.length > 0) {
+            const lastOrderId = lastOrder[0].orderId;
+            const lastOrderNumberString = lastOrderId.replace("CRY", "");
+            const lastOrderNumber = parseInt(lastOrderNumberString);
+            const newOrderNumber = lastOrderNumber + 1;
+            const newOrderNumberString = String(newOrderNumber).padStart(5, '0');
+            orderId = "CRY" + newOrderNumberString;
+        }
+
+        let total = 0;
+        let labelledTotal = 0;
+        const products = [];
+
+        for (let i = 0; i < orderInfo.products.length; i++) {
+            const item = await Product.findOne({ productId: orderInfo.products[i].productId });
+
+            if (!item) {
+                return res.status(404).json({
+                    message: `Product with ID ${orderInfo.products[i].productId} not found`
+                });
+            }
+
+            if (item.isAvailable === false) {
+                return res.status(404).json({
+                    message: `Product with ID ${orderInfo.products[i].productId} is not available`
+                });
+            }
+
+            const quantity = orderInfo.products[i].quantity;
+
+            products.push({
+                productId: item.productId,
+                name: item.name,
+                altNames: item.altNames,
+                description: item.description,
+                images: item.images,
+                labelledPrice: item.labelledPrice,
+                price: item.price,
+                quantity: quantity
+            });
+
+            total += item.price * quantity;
+            labelledTotal += item.labelledPrice * quantity;
+        }
+
+        const order = new Order({
+            orderId,
+            name: orderInfo.name,
+            email: req.user.email,
+            phone: orderInfo.phone,
+            address: orderInfo.address,
+            total: total,
+            labelledTotal: labelledTotal,
+            products: products
+        });
+
+        const createdOrder = await order.save();
+
+        return res.status(201).json({
+            message: "Order created successfully",
+            order: createdOrder
+        });
+
+    } catch (err) {
+        return res.status(500).json({
+            message: "Failed to create order",
+            error: err.message
+        });
+    }
 }
