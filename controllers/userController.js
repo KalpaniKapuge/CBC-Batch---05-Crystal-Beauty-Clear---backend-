@@ -3,6 +3,9 @@ import User from "../models/user.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
+import nodemailer from "nodemailer";
+import OTP from "../models/otp.js"; 
+
 dotenv.config();
 
 const signToken = (user) => {
@@ -15,8 +18,77 @@ const signToken = (user) => {
       img: user.img,
     },
     process.env.JWT_KEY
-  ); // no expiration as requested
+  ); 
 };
+
+
+const transport = nodemailer.createTransport({
+  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, 
+  auth: {
+    user: "kalpanikapuge1020@gmail.com",
+    pass: process.env.APP_PASSWORD, 
+  },
+});
+
+export async function sendOTP(req, res) {
+  try {
+    const randomOTP = Math.floor(100000 + Math.random() * 900000);
+    const email = req.body.email;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email: email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // delete all previous OTPs for this email
+    await OTP.deleteMany({ email: email });
+
+    // save new OTP
+    const otpEntry = new OTP({
+      email: email,
+      otp: randomOTP,
+      createdAt: new Date(),
+    });
+    await otpEntry.save();
+
+    const message = {
+      from: "kalpanikapuge1020@gmail.com",
+      to: email,
+      subject: "Resetting password for Crystal Beauty Clear",
+      text: `This is your password reset OTP: ${randomOTP}`,
+      html: `<p>This is your password reset OTP:</p><h2>${randomOTP}</h2>`,
+    };
+
+    transport.sendMail(message, (error, info) => {
+      if (error) {
+        console.error("OTP email error:", error);
+        return res.status(500).json({
+          message: "Failed to send OTP",
+          error: error.message || error,
+        });
+      } else {
+        return res.json({
+          message: "OTP sent successfully",
+          // do not send OTP in production; included here if needed for dev
+          otp: randomOTP,
+        });
+      }
+    });
+  } catch (err) {
+    console.error("sendOTP error:", err);
+    return res.status(500).json({
+      message: "Failed to process OTP request",
+      error: err.message || err,
+    });
+  }
+}
 
 export async function createUser(req, res) {
   try {
