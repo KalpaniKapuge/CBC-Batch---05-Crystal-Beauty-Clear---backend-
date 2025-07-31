@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
 import nodemailer from "nodemailer";
-import OTP from "../models/otp.js"; 
+import OTP from "../models/otp.js"; // adjust path if needed
 
 dotenv.config();
 
@@ -18,18 +18,17 @@ const signToken = (user) => {
       img: user.img,
     },
     process.env.JWT_KEY
-  ); 
+  ); // no expiration
 };
-
 
 const transport = nodemailer.createTransport({
   service: "gmail",
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, 
+  secure: false, // use STARTTLS
   auth: {
-    user: "kalpanikapuge1020@gmail.com",
-    pass: process.env.APP_PASSWORD, 
+    user: process.env.EMAIL_USER || "kalpanikapuge1020@gmail.com",
+    pass: process.env.APP_PASSWORD,
   },
 });
 
@@ -42,24 +41,24 @@ export async function sendOTP(req, res) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // delete all previous OTPs for this email
-    await OTP.deleteMany({ email: email });
+    // Delete previous OTPs for this email
+    await OTP.deleteMany({ email });
 
-    // save new OTP
+    // Save new OTP
     const otpEntry = new OTP({
-      email: email,
+      email,
       otp: randomOTP,
       createdAt: new Date(),
     });
     await otpEntry.save();
 
     const message = {
-      from: "kalpanikapuge1020@gmail.com",
+      from: process.env.EMAIL_USER || "kalpanikapuge1020@gmail.com",
       to: email,
       subject: "Resetting password for Crystal Beauty Clear",
       text: `This is your password reset OTP: ${randomOTP}`,
@@ -76,7 +75,7 @@ export async function sendOTP(req, res) {
       } else {
         return res.json({
           message: "OTP sent successfully",
-          // do not send OTP in production; included here if needed for dev
+          // NOTE: For production, do not send OTP back in response.
           otp: randomOTP,
         });
       }
@@ -85,6 +84,52 @@ export async function sendOTP(req, res) {
     console.error("sendOTP error:", err);
     return res.status(500).json({
       message: "Failed to process OTP request",
+      error: err.message || err,
+    });
+  }
+}
+
+export async function resetPassword(req, res) {
+  try {
+    const { otp, email, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        message: "Email, OTP, and new password are required",
+      });
+    }
+
+    const storedOtp = await OTP.findOne({ email });
+    if (!storedOtp) {
+      return res.status(404).json({
+        message: "No OTP request found. Please request a new one.",
+      });
+    }
+
+    if (String(otp) !== String(storedOtp.otp)) {
+      return res.status(403).json({
+        message: "OTPs are not matching!",
+      });
+    }
+
+    // OTP matches: delete all and update password
+    await OTP.deleteMany({ email });
+
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await User.updateOne(
+      { email },
+      {
+        password: hashedPassword,
+      }
+    );
+
+    return res.json({
+      message: "Password has been reset successfully",
+    });
+  } catch (err) {
+    console.error("resetPassword error:", err);
+    return res.status(500).json({
+      message: "Failed to reset password",
       error: err.message || err,
     });
   }
