@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
 import nodemailer from "nodemailer";
-import OTP from "../models/otp.js"; // adjust path if needed
+import OTP from "../models/otp.js"; 
 
 dotenv.config();
 
@@ -18,16 +18,16 @@ const signToken = (user) => {
       img: user.img,
     },
     process.env.JWT_KEY
-  ); // no expiration
+  ); 
 };
 
 const transport = nodemailer.createTransport({
   service: "gmail",
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, // use STARTTLS
+  secure: false, 
   auth: {
-    user: process.env.EMAIL_USER || "kalpanikapuge1020@gmail.com",
+    user: "kalpanikapuge1020@gmail.com",
     pass: process.env.APP_PASSWORD,
   },
 });
@@ -65,7 +65,7 @@ export async function sendOTP(req, res) {
       html: `<p>This is your password reset OTP:</p><h2>${randomOTP}</h2>`,
     };
 
-    transport.sendMail(message, (error, info) => {
+    transport.sendMail(message, (error) => {
       if (error) {
         console.error("OTP email error:", error);
         return res.status(500).json({
@@ -75,7 +75,6 @@ export async function sendOTP(req, res) {
       } else {
         return res.json({
           message: "OTP sent successfully",
-          // NOTE: For production, do not send OTP back in response.
           otp: randomOTP,
         });
       }
@@ -116,12 +115,7 @@ export async function resetPassword(req, res) {
     await OTP.deleteMany({ email });
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    await User.updateOne(
-      { email },
-      {
-        password: hashedPassword,
-      }
-    );
+    await User.updateOne({ email }, { password: hashedPassword });
 
     return res.json({
       message: "Password has been reset successfully",
@@ -272,4 +266,15 @@ export async function loginWithGoogle(req, res) {
 export function isAdmin(req) {
   if (!req.user) return false;
   return req.user.role === "admin";
+}
+
+export function getUser(req, res) {
+  if (!req.user) {
+    return res.status(403).json({
+      message: "You are not authorized to view user details",
+    });
+  }
+  // omit password if present
+  const { password, ...safe } = req.user;
+  return res.json(safe);
 }
