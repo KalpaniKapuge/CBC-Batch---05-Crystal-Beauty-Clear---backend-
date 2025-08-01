@@ -1,15 +1,18 @@
 import mongoose from "mongoose";
 
-const OTPSchema = mongoose.Schema({
-    email:{
-        require:true,
-        type:String
-    },
-    otp:{
-        require:true,
-        type:Number
-    }
-})
+const OTPSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+  },
+  otp: {
+    type: Number,
+    required: true,
+  }
+}, { timestamps: true });
 
-const OTP = mongoose.model("OTP",OTPSchema)
+// expire OTP documents after 10 minutes
+OTPSchema.index({ createdAt: 1 }, { expireAfterSeconds: 600 });
+
+const OTP = mongoose.model("OTP", OTPSchema);
 export default OTP;

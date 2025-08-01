@@ -20,10 +20,14 @@ export function saveProduct(req, res) {
       });
     })
     .catch((err) => {
-      res.status(500).json({
+      const response = {
         message: "Error saving product",
         error: err,
-      });
+      };
+      if (err.code === 11000) {
+        response.message = "Product with that ID already exists";
+      }
+      res.status(500).json(response);
     });
 }
 
@@ -82,13 +86,8 @@ export async function updateProduct(req, res) {
 
   try {
     const result = await Product.updateOne({ productId }, updatingData);
-    if (result.matchedCount === 0 && result.modifiedCount === 0) {
-      // depending on mongoose version you might check result.nModified or similar
-      // fallback: if no document matched
-      const existing = await Product.findOne({ productId });
-      if (!existing) {
-        return res.status(404).json({ message: "Product not found" });
-      }
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Product not found" });
     }
     return res.status(200).json({
       message: "Product updated successfully",
@@ -136,20 +135,33 @@ export async function getProductById(req, res) {
 }
 
 export async function searchProducts(req, res) {
-  const searchQuery = req.params.searchQuery;
+  const searchQuery = req.params.searchQuery || "";
+
+  if (!searchQuery.trim()) {
+    return res.status(200).json([]);
+  }
+
   try {
     const products = await Product.find({
+      isAvailable: true,
       $or: [
         { name: { $regex: searchQuery, $options: "i" } },
-        { altNames: { $elemMatch: { $regex: searchQuery, $options: "i" } } },
+        {
+          altNames: {
+            $exists: true,
+            $ne: null,
+            $elemMatch: { $regex: searchQuery, $options: "i" },
+          },
+        },
       ],
-      isAvailable: true,
     });
+
     return res.status(200).json(products);
   } catch (err) {
+    console.error("Search error:", err);
     return res.status(500).json({
       message: "Internal server error",
-      error: err,
+      error: err.toString(),
     });
   }
 }

@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
 import nodemailer from "nodemailer";
-import OTP from "../models/otp.js"; 
+import OTP from "../models/otp.js";
 
 dotenv.config();
 
@@ -15,19 +15,21 @@ const signToken = (user) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      img: user.img,
+      image: user.image,
+      id: user._id
     },
-    process.env.JWT_KEY
-  ); 
+    process.env.JWT_KEY,
+    { expiresIn: "7d" }
+  );
 };
 
 const transport = nodemailer.createTransport({
   service: "gmail",
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, 
+  secure: false,
   auth: {
-    user: "kalpanikapuge1020@gmail.com",
+    user: process.env.EMAIL_USER || "kalpanikapuge1020@gmail.com",
     pass: process.env.APP_PASSWORD,
   },
 });
@@ -53,7 +55,6 @@ export async function sendOTP(req, res) {
     const otpEntry = new OTP({
       email,
       otp: randomOTP,
-      createdAt: new Date(),
     });
     await otpEntry.save();
 
@@ -75,7 +76,6 @@ export async function sendOTP(req, res) {
       } else {
         return res.json({
           message: "OTP sent successfully",
-          otp: randomOTP,
         });
       }
     });
@@ -101,7 +101,7 @@ export async function resetPassword(req, res) {
     const storedOtp = await OTP.findOne({ email });
     if (!storedOtp) {
       return res.status(404).json({
-        message: "No OTP request found. Please request a new one.",
+        message: 'No OTP request found. Please request a new one.',
       });
     }
 
@@ -149,8 +149,8 @@ export async function createUser(req, res) {
       lastName: req.body.lastName,
       email: req.body.email,
       password: hashedPassword,
-      role: req.body.role || "user",
-      img: req.body.img || null,
+      role: req.body.role || "customer",
+      image: req.body.image || undefined,
     });
 
     const savedUser = await user.save();
@@ -161,15 +161,19 @@ export async function createUser(req, res) {
         firstName: savedUser.firstName,
         lastName: savedUser.lastName,
         role: savedUser.role,
-        img: savedUser.img,
+        image: savedUser.image,
         id: savedUser._id,
       },
     });
   } catch (err) {
-    return res.status(500).json({
+    const response = {
       message: "Error saving user",
       error: err.message || err,
-    });
+    };
+    if (err.code === 11000) {
+      response.message = "Email already in use";
+    }
+    return res.status(500).json(response);
   }
 }
 
@@ -242,8 +246,8 @@ export async function loginWithGoogle(req, res) {
         firstName: googleUser.given_name || "",
         lastName: googleUser.family_name || "",
         password: bcrypt.hashSync("googleUserPlaceholder", 10),
-        img: googleUser.picture,
-        role: "user",
+        image: googleUser.picture,
+        role: "customer",
       });
       await user.save();
     }
@@ -271,10 +275,9 @@ export function isAdmin(req) {
 export function getUser(req, res) {
   if (!req.user) {
     return res.status(403).json({
-      message: "You are not authorized to view user details",
+      message: 'You are not authorized to view user details',
     });
   }
-  // omit password if present
   const { password, ...safe } = req.user;
   return res.json(safe);
 }

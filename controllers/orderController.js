@@ -11,6 +11,10 @@ export async function createOrder(req, res) {
 
   const orderInfo = req.body;
 
+  if (!Array.isArray(orderInfo.products) || orderInfo.products.length === 0) {
+    return res.status(400).json({ message: 'No products provided in order.' });
+  }
+
   // Auto-fill name if not provided
   if (!orderInfo.name) {
     orderInfo.name = `${req.user.firstName} ${req.user.lastName}`;
@@ -33,10 +37,6 @@ export async function createOrder(req, res) {
     let total = 0;
     let labelledTotal = 0;
     const products = [];
-
-    if (!Array.isArray(orderInfo.products) || orderInfo.products.length === 0) {
-      return res.status(400).json({ message: 'No products provided in order.' });
-    }
 
     for (const prod of orderInfo.products) {
       const item = await Product.findOne({ productId: prod.productId });
@@ -79,7 +79,7 @@ export async function createOrder(req, res) {
       total,
       labelledTotal,
       products,
-      status: 'Pending', // default status if your schema supports it
+      status: 'pending',
     });
 
     const createdOrder = await order.save();
@@ -128,15 +128,16 @@ export async function updateOrderStatus(req, res) {
 
   try {
     const orderId = req.params.orderId;
-    // prefer status from body, fallback to param (for legacy)
-    const status = req.body?.status || req.params.status;
+    // prefer status from body, fallback to param
+    const rawStatus = req.body?.status || req.params.status || '';
+    const status = String(rawStatus).toLowerCase();
 
     if (!status) {
       return res.status(400).json({ message: 'Status is required' });
     }
 
-    const validStatuses = ['Pending', 'Completed', 'Canceled', 'Returned'];
-    if (!validStatuses.includes(capitalizeFirst(status))) {
+    const validStatuses = ['pending', 'completed', 'canceled', 'returned'];
+    if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: `Invalid status. Allowed: ${validStatuses.join(', ')}`,
       });
@@ -144,7 +145,7 @@ export async function updateOrderStatus(req, res) {
 
     const updated = await Order.updateOne(
       { orderId },
-      { status: capitalizeFirst(status) }
+      { status }
     );
 
     if (updated.matchedCount === 0) {
@@ -160,10 +161,4 @@ export async function updateOrderStatus(req, res) {
       error: e.message || e,
     });
   }
-}
-
-// Helper
-function capitalizeFirst(str) {
-  if (!str || typeof str !== 'string') return str;
-  return str[0].toUpperCase() + str.slice(1).toLowerCase();
 }

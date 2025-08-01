@@ -1,5 +1,4 @@
 import express from 'express';
-import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
@@ -13,33 +12,44 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({
-    origin: 'http://localhost:5173', 
-    credentials: true
-}));
+// Basic sanity check for required env
+if (!process.env.MONGODB_URL) {
+  console.error("MONGODB_URL is not defined in environment");
+  process.exit(1);
+}
+if (!process.env.JWT_KEY) {
+  console.error("JWT_KEY is not defined in environment");
+  process.exit(1);
+}
 
+// CORS
+app.use(
+  cors({
+    origin: 'http://localhost:5173', // frontend origin
+    credentials: true,
+  })
+);
 
-app.use(bodyParser.json());
+// Body parsing
+app.use(express.json());
 
 // JWT middleware
 app.use((req, res, next) => {
-    const tokenString = req.header("Authorization");
-
-    if (tokenString != null) {
-        const token = tokenString.replace("Bearer ", "");
-
-        jwt.verify(token, process.env.JWT_KEY, (err, decoded) => {
-            if (err || !decoded) {
-                console.log("Invalid token");
-                return res.status(403).json({ message: "Invalid token" });
-            }
-
-            req.user = decoded;
-            next();
-        });
-    } else {
-        next();
-    }
+  const authHeader = req.header("Authorization") || "";
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.replace("Bearer ", "").trim();
+    jwt.verify(token, process.env.JWT_KEY, (err, decoded) => {
+      if (err || !decoded) {
+        console.log("Invalid token:", err?.message || "unknown reason");
+        // do not block, just don't set user
+        return next();
+      }
+      req.user = decoded;
+      next();
+    });
+  } else {
+    next();
+  }
 });
 
 // Routers
@@ -47,15 +57,16 @@ app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
 app.use('/api/orders', orderRouter);
 
-
-mongoose.connect(process.env.MONGODB_URL)
-    .then(() => {
-        console.log("Connected to MongoDB");
-    })
-    .catch((err) => {
-        console.error("Error connecting to MongoDB:", err);
+// Connect to MongoDB then start server
+mongoose
+  .connect(process.env.MONGODB_URL)
+  .then(() => {
+    console.log("Connected to MongoDB");
+    app.listen(5000, () => {
+      console.log("Server is running on port 5000");
     });
-
-app.listen(5000, () => {
-    console.log("Server is running on port 5000");
-});
+  })
+  .catch((err) => {
+    console.error("Error connecting to MongoDB:", err);
+    process.exit(1);
+  });

@@ -3,8 +3,8 @@ import { createOrder, getOrders, updateOrderStatus } from '../controllers/orderC
 
 const orderRouter = express.Router();
 
-orderRouter.post("/",createOrder);
-orderRouter.get("/",getOrders)
-orderRouter.put("/:orderId/:status",updateOrderStatus)
+orderRouter.post("/", createOrder);
+orderRouter.get("/", getOrders);
+orderRouter.put("/:orderId/:status", updateOrderStatus);
 
 export default orderRouter;
