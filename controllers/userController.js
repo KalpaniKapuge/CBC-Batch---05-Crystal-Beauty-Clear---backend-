@@ -1,3 +1,4 @@
+// controllers/userController.js
 import bcrypt from "bcrypt";
 import User from "../models/user.js";
 import jwt from "jsonwebtoken";
@@ -16,7 +17,7 @@ const signToken = (user) => {
       lastName: user.lastName,
       role: user.role,
       image: user.image,
-      id: user._id
+      id: user._id,
     },
     process.env.JWT_KEY,
     { expiresIn: "7d" }
@@ -29,7 +30,7 @@ const transport = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: process.env.EMAIL_USER || "kalpanikapuge1020@gmail.com",
+    user: process.env.EMAIL_USER,
     pass: process.env.APP_PASSWORD,
   },
 });
@@ -48,10 +49,8 @@ export async function sendOTP(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Delete previous OTPs for this email
     await OTP.deleteMany({ email });
 
-    // Save new OTP
     const otpEntry = new OTP({
       email,
       otp: randomOTP,
@@ -59,7 +58,7 @@ export async function sendOTP(req, res) {
     await otpEntry.save();
 
     const message = {
-      from: process.env.EMAIL_USER || "kalpanikapuge1020@gmail.com",
+      from: process.env.EMAIL_USER,
       to: email,
       subject: "Resetting password for Crystal Beauty Clear",
       text: `This is your password reset OTP: ${randomOTP}`,
@@ -101,7 +100,7 @@ export async function resetPassword(req, res) {
     const storedOtp = await OTP.findOne({ email });
     if (!storedOtp) {
       return res.status(404).json({
-        message: 'No OTP request found. Please request a new one.',
+        message: "No OTP request found. Please request a new one.",
       });
     }
 
@@ -111,7 +110,6 @@ export async function resetPassword(req, res) {
       });
     }
 
-    // OTP matches: delete all and update password
     await OTP.deleteMany({ email });
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
@@ -131,29 +129,35 @@ export async function resetPassword(req, res) {
 
 export async function createUser(req, res) {
   try {
-    // If creating admin, ensure requester is admin
     if (req.user != null && req.body.role === "admin" && req.user.role !== "admin") {
       return res.status(403).json({
         message: "You are not authorized to create admin accounts",
       });
     }
 
-    if (!req.body.password) {
-      return res.status(400).json({ message: "Password is required" });
+    const { firstName, lastName, email, password, role, image } = req.body;
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ message: "Required fields missing" });
     }
 
-    const hashedPassword = bcrypt.hashSync(req.body.password, 10);
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
 
     const user = new User({
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
+      firstName,
+      lastName,
+      email,
       password: hashedPassword,
-      role: req.body.role || "customer",
-      image: req.body.image || undefined,
+      role: role || "customer",
+      image: image || undefined,
     });
 
     const savedUser = await user.save();
+
     return res.status(201).json({
       message: "User created successfully",
       user: {
@@ -166,6 +170,7 @@ export async function createUser(req, res) {
       },
     });
   } catch (err) {
+    console.error("createUser error:", err);
     const response = {
       message: "Error saving user",
       error: err.message || err,
@@ -186,16 +191,12 @@ export function loginUser(req, res) {
   User.findOne({ email })
     .then((user) => {
       if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
+        return res.status(404).json({ message: "User not found" });
       }
 
       const isPasswordCorrect = bcrypt.compareSync(password, user.password);
       if (!isPasswordCorrect) {
-        return res.status(401).json({
-          message: "Invalid password",
-        });
+        return res.status(401).json({ message: "Invalid password" });
       }
 
       const token = signToken(user);
@@ -222,14 +223,11 @@ export async function loginWithGoogle(req, res) {
       });
     }
 
-    const response = await axios.get(
-      "https://www.googleapis.com/oauth2/v3/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
+    const response = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
 
     const googleUser = response.data;
     if (!googleUser.email) {
@@ -275,7 +273,7 @@ export function isAdmin(req) {
 export function getUser(req, res) {
   if (!req.user) {
     return res.status(403).json({
-      message: 'You are not authorized to view user details',
+      message: "You are not authorized to view user details",
     });
   }
   const { password, ...safe } = req.user;

@@ -1,12 +1,13 @@
-import express from 'express';
+// routes/userRouter.js
+import express from "express";
 import {
   createUser,
   getUser,
   loginUser,
   loginWithGoogle,
   resetPassword,
-  sendOTP
-} from '../controllers/userController.js';
+  sendOTP,
+} from "../controllers/userController.js";
 
 const userRouter = express.Router();
 
