@@ -17,7 +17,7 @@ const signToken = (user) => {
       lastName: user.lastName,
       role: user.role,
       image: user.image,
-      id: user._id,
+      _id: user._id,
     },
     process.env.JWT_KEY,
     { expiresIn: "7d" }
@@ -166,7 +166,7 @@ export async function createUser(req, res) {
         lastName: savedUser.lastName,
         role: savedUser.role,
         image: savedUser.image,
-        id: savedUser._id,
+        _id: savedUser._id,
       },
     });
   } catch (err) {
@@ -279,3 +279,22 @@ export function getUser(req, res) {
   const { password, ...safe } = req.user;
   return res.json(safe);
 }
+
+export const authMiddleware = (req, res, next) => {
+  console.log("authMiddleware called with headers:", req.headers);
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    console.log("authMiddleware failed: No Bearer token provided");
+    return res.status(401).json({ message: 'Authentication required. Please log in.' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_KEY);
+    console.log("authMiddleware decoded token:", decoded);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error("authMiddleware error:", err);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
+};
