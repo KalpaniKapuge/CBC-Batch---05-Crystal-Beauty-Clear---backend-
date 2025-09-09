@@ -7,6 +7,7 @@ import cors from 'cors';
 import userRouter from './routes/userRouter.js';
 import productRouter from './routes/productRouter.js';
 import orderRouter from './routes/orderRouter.js';
+import reviewRouter from './routes/reviewRouter.js';
 
 dotenv.config();
 
@@ -25,7 +26,7 @@ if (!process.env.JWT_KEY) {
 // CORS
 app.use(
   cors({
-    origin: 'http://localhost:5173', // frontend origin
+    origin: 'http://localhost:5173',
     credentials: true,
   })
 );
@@ -41,7 +42,6 @@ app.use((req, res, next) => {
     jwt.verify(token, process.env.JWT_KEY, (err, decoded) => {
       if (err || !decoded) {
         console.log("Invalid token:", err?.message || "unknown reason");
-       
         return next();
       }
       req.user = decoded;
@@ -56,6 +56,7 @@ app.use((req, res, next) => {
 app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
 app.use('/api/orders', orderRouter);
+app.use('/api/reviews', reviewRouter);
 
 // Connect to MongoDB then start server
 mongoose
