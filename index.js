@@ -41,7 +41,7 @@ app.use((req, res, next) => {
     jwt.verify(token, process.env.JWT_KEY, (err, decoded) => {
       if (err || !decoded) {
         console.log("Invalid token:", err?.message || "unknown reason");
-        // do not block, just don't set user
+       
         return next();
       }
       req.user = decoded;
@@ -62,8 +62,8 @@ mongoose
   .connect(process.env.MONGODB_URL)
   .then(() => {
     console.log("Connected to MongoDB");
-    app.listen(5000, () => {
-      console.log("Server is running on port 5000");
+    app.listen(3000, () => {
+      console.log("Server is running on port 3000");
     });
   })
   .catch((err) => {
