@@ -23,16 +23,32 @@ if (!process.env.JWT_KEY) {
   process.exit(1);
 }
 
-// CORS
+// CORS with dynamic origin support
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173', 
+    origin: (origin, callback) => {
+      const allowedOrigins = process.env.CORS_ORIGIN 
+        ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) 
+        : ['http://localhost:5173'];
+      
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
 
 // Body parsing
 app.use(express.json());
+
+// COOP middleware to allow pop-ups
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  next();
+});
 
 // JWT middleware
 app.use((req, res, next) => {
