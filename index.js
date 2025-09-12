@@ -44,11 +44,11 @@ app.use(
 // Body parsing
 app.use(express.json());
 
-// COOP middleware to allow pop-ups
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  next();
-});
+// Removed Cross-Origin-Opener-Policy header to avoid window.closed errors
+// app.use((req, res, next) => {
+//   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+//   next();
+// });
 
 // JWT middleware
 app.use((req, res, next) => {

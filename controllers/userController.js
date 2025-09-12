@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
 import nodemailer from "nodemailer";
+import mongoose from "mongoose";
 import OTP from "../models/otp.js";
 
 dotenv.config();
@@ -37,20 +38,74 @@ const transport = nodemailer.createTransport({
 
 export async function sendOTP(req, res) {
   try {
+    console.log("sendOTP: Request received with body:", req.body);
+
+    // Validate environment variables
+    if (!process.env.EMAIL_USER || !process.env.APP_PASSWORD) {
+      console.error("sendOTP: Missing EMAIL_USER or APP_PASSWORD");
+      return res.status(500).json({
+        message: "Server configuration error: Email service not configured",
+        error: "Missing email credentials",
+      });
+    }
+
+    // Verify SMTP connection
+    try {
+      console.log("sendOTP: Verifying SMTP connection for:", process.env.EMAIL_USER);
+      await transport.verify();
+      console.log("sendOTP: SMTP connection verified");
+    } catch (err) {
+      console.error("sendOTP: SMTP verification failed:", {
+        message: err.message,
+        name: err.name,
+        code: err.code,
+        stack: err.stack,
+      });
+      return res.status(500).json({
+        message: "Failed to send OTP",
+        error: "SMTP configuration error",
+        errorDetails: err.message,
+        errorCode: err.code || "UNKNOWN",
+      });
+    }
+
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error("sendOTP: MongoDB not connected, readyState:", mongoose.connection.readyState);
+      return res.status(500).json({
+        message: "Database connection error",
+        error: "MongoDB not connected",
+      });
+    }
+
+    // Verify OTP model
+    if (!OTP) {
+      console.error("sendOTP: OTP model not defined");
+      return res.status(500).json({
+        message: "Server error: OTP model not found",
+        error: "OTP model missing",
+      });
+    }
+
     const randomOTP = Math.floor(100000 + Math.random() * 900000);
-    const email = req.body.email;
+    const email = req.body.email?.trim();
 
     if (!email) {
+      console.log("sendOTP: Missing email");
       return res.status(400).json({ message: "Email is required" });
     }
 
+    console.log("sendOTP: Checking user for email:", email);
     const user = await User.findOne({ email });
     if (!user) {
+      console.log("sendOTP: User not found for email:", email);
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log("sendOTP: Deleting existing OTPs for email:", email);
     await OTP.deleteMany({ email });
 
+    console.log("sendOTP: Saving new OTP for email:", email);
     const otpEntry = new OTP({
       email,
       otp: randomOTP,
@@ -65,53 +120,68 @@ export async function sendOTP(req, res) {
       html: `<p>This is your password reset OTP:</p><h2>${randomOTP}</h2>`,
     };
 
-    transport.sendMail(message, (error) => {
-      if (error) {
-        console.error("OTP email error:", error);
-        return res.status(500).json({
-          message: "Failed to send OTP",
-          error: error.message || error,
-        });
-      } else {
-        return res.json({
-          message: "OTP sent successfully",
-        });
-      }
+    console.log("sendOTP: Sending email to:", email);
+    await transport.sendMail(message);
+    console.log("sendOTP: Email sent successfully to:", email);
+
+    return res.json({
+      message: "OTP sent successfully",
     });
   } catch (err) {
-    console.error("sendOTP error:", err);
+    console.error("sendOTP: Error:", {
+      message: err.message,
+      name: err.name,
+      code: err.code,
+      stack: err.stack,
+    });
     return res.status(500).json({
-      message: "Failed to process OTP request",
-      error: err.message || err,
+      message: "Failed to send OTP",
+      error: err.message || "Internal server error",
+      errorName: err.name,
+      errorCode: err.code || "UNKNOWN",
     });
   }
 }
 
 export async function resetPassword(req, res) {
   try {
+    if (!OTP) {
+      console.error("resetPassword: OTP model not defined");
+      return res.status(500).json({
+        message: "Server error: OTP model not found",
+        error: "OTP model missing",
+      });
+    }
+
     const { otp, email, newPassword } = req.body;
 
     if (!email || !otp || !newPassword) {
+      console.log("resetPassword: Missing required fields");
       return res.status(400).json({
         message: "Email, OTP, and new password are required",
       });
     }
 
+    console.log("resetPassword: Finding OTP for email:", email);
     const storedOtp = await OTP.findOne({ email });
     if (!storedOtp) {
+      console.log("resetPassword: No OTP found for email:", email);
       return res.status(404).json({
         message: "No OTP request found. Please request a new one.",
       });
     }
 
     if (String(otp) !== String(storedOtp.otp)) {
+      console.log("resetPassword: OTP mismatch for email:", email);
       return res.status(403).json({
         message: "OTPs are not matching!",
       });
     }
 
+    console.log("resetPassword: Deleting OTPs for email:", email);
     await OTP.deleteMany({ email });
 
+    console.log("resetPassword: Updating password for email:", email);
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
     await User.updateOne({ email }, { password: hashedPassword });
 
@@ -119,10 +189,17 @@ export async function resetPassword(req, res) {
       message: "Password has been reset successfully",
     });
   } catch (err) {
-    console.error("resetPassword error:", err);
+    console.error("resetPassword: Error:", {
+      message: err.message,
+      name: err.name,
+      code: err.code,
+      stack: err.stack,
+    });
     return res.status(500).json({
       message: "Failed to reset password",
-      error: err.message || err,
+      error: err.message || "Internal server error",
+      errorName: err.name,
+      errorCode: err.code || "UNKNOWN",
     });
   }
 }
