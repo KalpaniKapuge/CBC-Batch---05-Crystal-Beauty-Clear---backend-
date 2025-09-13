@@ -1,4 +1,3 @@
-// routes/reviewRouter.js
 import express from 'express';
 import { addReview, getReviewsByProduct } from '../controllers/reviewController.js';
 import { authMiddleware } from '../controllers/userController.js';

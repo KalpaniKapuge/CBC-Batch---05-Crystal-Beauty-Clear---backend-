@@ -26,8 +26,8 @@ export async function createOrder(req, res) {
     const lastOrder = await Order.find().sort({ date: -1 }).limit(1);
 
     if (lastOrder.length > 0) {
-      const lastOrderId = lastOrder[0].orderId; // e.g., "CRY00042"
-      const lastOrderNumberString = lastOrderId.replace(/^CRY/, ''); // "00042"
+      const lastOrderId = lastOrder[0].orderId; 
+      const lastOrderNumberString = lastOrderId.replace(/^CRY/, ''); 
       const lastOrderNumber = parseInt(lastOrderNumberString, 10);
       const newOrderNumber = lastOrderNumber + 1;
       const newOrderNumberString = String(newOrderNumber).padStart(5, '0');

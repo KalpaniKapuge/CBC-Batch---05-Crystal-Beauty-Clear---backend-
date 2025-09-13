@@ -1,4 +1,3 @@
-// controllers/userController.js
 import bcrypt from "bcrypt";
 import User from "../models/user.js";
 import jwt from "jsonwebtoken";
@@ -7,8 +6,8 @@ import axios from "axios";
 import nodemailer from "nodemailer";
 import mongoose from "mongoose";
 import OTP from "../models/otp.js";
-
 dotenv.config();
+
 
 const signToken = (user) => {
   return jwt.sign(

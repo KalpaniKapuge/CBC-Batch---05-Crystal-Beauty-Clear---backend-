@@ -13,7 +13,7 @@ dotenv.config();
 
 const app = express();
 
-// Basic sanity check for required env
+
 if (!process.env.MONGODB_URL) {
   console.error("MONGODB_URL is not defined in environment");
   process.exit(1);
@@ -43,12 +43,6 @@ app.use(
 
 // Body parsing
 app.use(express.json());
-
-// Removed Cross-Origin-Opener-Policy header to avoid window.closed errors
-// app.use((req, res, next) => {
-//   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-//   next();
-// });
 
 // JWT middleware
 app.use((req, res, next) => {

@@ -1,4 +1,3 @@
-// controllers/reviewController.js
 import Review from "../models/review.js";
 import Product from "../models/product.js";
 import jwt from "jsonwebtoken";

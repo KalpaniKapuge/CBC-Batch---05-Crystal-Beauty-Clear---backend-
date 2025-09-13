@@ -1,4 +1,3 @@
-// routes/userRouter.js
 import express from "express";
 import {
   createUser,

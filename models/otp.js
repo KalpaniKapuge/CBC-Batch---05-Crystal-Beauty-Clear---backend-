@@ -1,4 +1,3 @@
-// models/otp.js
 import mongoose from "mongoose";
 
 const OTPSchema = new mongoose.Schema(
